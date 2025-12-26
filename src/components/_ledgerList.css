@@ -1,0 +1,110 @@
+/* src/components/_ledgerList.css */
+.ledger-card {
+    background: rgba(15, 23, 42, 0.95);
+    border-radius: 1.2rem;
+    padding: 1.1rem 1.15rem 1rem;
+    border: 1px solid rgba(148, 163, 184, 0.4);
+    box-shadow: 0 16px 36px rgba(15, 23, 42, 0.95);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.ledger-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    align-items: flex-end;
+}
+
+.ledger-header h2 {
+    margin: 0 0 0.2rem;
+    font-size: 1rem;
+    color: #f9fafb;
+}
+
+.ledger-header p {
+    margin: 0;
+    font-size: 0.8rem;
+    color: #9ca3af;
+}
+
+.ledger-toolbar {
+    display: flex;
+    gap: 0.45rem;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.ledger-input {
+    padding: 0.5rem 0.7rem;
+    border-radius: 999px;
+    border: 1px solid rgba(148, 163, 184, 0.5);
+    background: rgba(15, 23, 42, 0.9);
+    color: #e5e7eb;
+    font-size: 0.8rem;
+    outline: none;
+    min-width: 180px;
+}
+
+.ledger-btn {
+    border-radius: 999px;
+    border: 1px solid rgba(148, 163, 184, 0.6);
+    padding: 0.28rem 0.7rem;
+    font-size: 0.75rem;
+    cursor: pointer;
+    background: transparent;
+    color: #e5e7eb;
+}
+
+.ledger-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.ledger-btn--ghost:hover {
+    background: rgba(37, 99, 235, 0.25);
+    border-color: rgba(59, 130, 246, 0.9);
+}
+
+.ledger-info { font-size: 0.85rem; color: #e5e7eb; }
+.ledger-error { font-size: 0.85rem; color: #fecaca; }
+
+.ledger-tablewrap {
+    border-radius: 0.9rem;
+    border: 1px solid rgba(31, 41, 55, 0.9);
+    overflow: hidden;
+    background: radial-gradient(circle at top left, rgba(30, 64, 175, 0.15), transparent 60%),
+    rgba(15, 23, 42, 0.95);
+}
+
+.ledger-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+    color: #e5e7eb;
+}
+
+.ledger-table th, .ledger-table td {
+    padding: 0.55rem 0.65rem;
+    text-align: left;
+    vertical-align: middle;
+}
+
+.ledger-table th {
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.68rem;
+    color: #9ca3af;
+    border-bottom: 1px solid rgba(55, 65, 81, 0.9);
+}
+
+.ledger-table tbody tr:nth-child(odd) { background: rgba(15, 23, 42, 0.98); }
+.ledger-table tbody tr:nth-child(even) { background: rgba(17, 24, 39, 0.98); }
+.ledger-table tbody tr:hover { background: rgba(30, 64, 175, 0.35); }
+
+.ledger-empty { text-align: center; padding: 1rem 0.7rem; color: #9ca3af; }
+
+.ledger-th-right, .ledger-td-right { text-align: right !important; }

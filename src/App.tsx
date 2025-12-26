@@ -1,26 +1,80 @@
-import React from 'react';
-import logo from './logo.svg';
-import './App.css';
+import React, { useEffect, useState } from "react";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 
-function App() {
-  return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
-  );
-}
+import LoginForm from "./components/LoginForm";
+import Dashboard from "./components/Dashboard";
+import CompanyDetails from "./components/CompanyDetails";
+
+import type { User } from "./types";
+import { me, logoutRequest } from "./authService";
+
+const App: React.FC = () => {
+    const [user, setUser] = useState<User | null>(null);
+    const [checkingSession, setCheckingSession] = useState(true);
+    const location = useLocation();
+
+    useEffect(() => {
+        (async () => {
+            try {
+                const current = await me();
+                setUser(current);
+            } catch {
+                setUser(null);
+            } finally {
+                setCheckingSession(false);
+            }
+        })();
+    }, []);
+
+    const handleLoginSuccess = (loggedUser: User) => {
+        setUser(loggedUser);
+    };
+
+    const handleLogout = async () => {
+        try {
+            await logoutRequest();
+        } catch {
+            // nawet jeśli backend nie odpowie, to i tak czyścimy stan
+        } finally {
+            setUser(null);
+        }
+    };
+
+    if (checkingSession) {
+        return <div style={{ padding: 24 }}>Ładowanie…</div>;
+    }
+
+    const requireAuth = (element: React.ReactElement) => {
+        if (user) return element;
+        return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+    };
+
+    return (
+        <Routes>
+            <Route
+                path="/login"
+                element={
+                    user ? (
+                        <Navigate to="/" replace />
+                    ) : (
+                        <LoginForm onLoginSuccess={handleLoginSuccess} />
+                    )
+                }
+            />
+
+            <Route
+                path="/"
+                element={requireAuth(<Dashboard user={user as User} onLogout={handleLogout} />)}
+            />
+
+            <Route
+                path="/admin/companies/:id"
+                element={requireAuth(<CompanyDetails user={user as User} onLogout={handleLogout} />)}
+            />
+
+            <Route path="*" element={<Navigate to={user ? "/" : "/login"} replace />} />
+        </Routes>
+    );
+};
 
 export default App;

@@ -1,75 +1,91 @@
-import { useState } from "react";
+import React, { useState } from "react";
+import "./_loginForm.css";
+import { login } from "../authService";
+import type { User } from "../types";
 
-export function LoginForm({ onLoginSuccess }) {
+interface LoginFormProps {
+    onLoginSuccess: (user: User) => void;
+}
+
+const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
     const [email, setEmail] = useState("admin@system.local");
     const [password, setPassword] = useState("admin123");
-    const [error, setError] = useState(null);
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
-    async function handleSubmit(e) {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setError(null);
         setLoading(true);
+        setError(null);
 
         try {
-            const res = await fetch("http://localhost:8000/api/login", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                credentials: "include", // ważne dla ciasteczek
-                body: JSON.stringify({ email, password }),
-            });
-
-            if (!res.ok) {
-                const data = await res.json().catch(() => ({}));
-                throw new Error(data.message || "Login failed");
-            }
-
-            const user = await res.json();
+            const user = await login(email, password);
             onLoginSuccess(user);
         } catch (err) {
-            setError(err.message);
+            console.error(err);
+            setError("Nieprawidłowy email lub hasło.");
         } finally {
             setLoading(false);
         }
-    }
+    };
 
     return (
-        <div style={{ maxWidth: 320, margin: "40px auto" }}>
-            <h2>Logowanie</h2>
-            <form onSubmit={handleSubmit}>
-                <div style={{ marginBottom: 12 }}>
-                    <label>
-                        Email<br />
+        <div className="login-page">
+            <div className="login-blob login-blob--1" />
+            <div className="login-blob login-blob--2" />
+
+            <div className="login-card">
+                <div className="login-logo">📄</div>
+
+                <h1 className="login-title">System księgowania dokumentów</h1>
+                <p className="login-subtitle">
+                    Zaloguj się, aby zarządzać firmami, kontrahentami i dokumentami.
+                </p>
+
+                {error && <div className="login-error">{error}</div>}
+
+                <form className="login-form" onSubmit={handleSubmit}>
+                    <label className="login-label">
+                        Email
                         <input
                             type="email"
+                            className="login-input"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            style={{ width: "100%" }}
+                            placeholder="admin@system.local"
+                            required
+                            autoComplete="email"
                         />
                     </label>
-                </div>
-                <div style={{ marginBottom: 12 }}>
-                    <label>
-                        Hasło<br />
+
+                    <label className="login-label">
+                        Hasło
                         <input
                             type="password"
+                            className="login-input"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            style={{ width: "100%" }}
+                            placeholder="••••••••"
+                            required
+                            autoComplete="current-password"
                         />
                     </label>
-                </div>
-                {error && (
-                    <div style={{ color: "red", marginBottom: 12 }}>
-                        {error}
-                    </div>
-                )}
-                <button type="submit" disabled={loading}>
-                    {loading ? "Logowanie..." : "Zaloguj"}
-                </button>
-            </form>
+
+                    <button
+                        type="submit"
+                        className="login-button"
+                        disabled={loading}
+                    >
+                        {loading ? "Logowanie..." : "Zaloguj się"}
+                    </button>
+                </form>
+
+                <p className="login-footer">
+                    © {new Date().getFullYear()} System księgowania dokumentów
+                </p>
+            </div>
         </div>
     );
-}
+};
+
+export default LoginForm;
