@@ -31,14 +31,30 @@
     color: #9ca3af;
 }
 
+/* ===== Toolbar ===== */
+
 .doc-toolbar {
     display: flex;
     gap: 0.45rem;
     align-items: center;
-    flex-wrap: wrap;
     justify-content: flex-end;
+
+    /* nie łam do kolejnej linii */
+    flex-wrap: nowrap;
+
+    /* jak zabraknie miejsca – przewijanie poziome */
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+    padding-bottom: 2px;
+    scrollbar-width: thin;
 }
 
+.doc-toolbar > * {
+    flex: 0 0 auto;
+}
+
+/* Bazowe input/select (poza toolbar) */
 .doc-input {
     padding: 0.5rem 0.7rem;
     border-radius: 999px;
@@ -47,7 +63,8 @@
     color: #e5e7eb;
     font-size: 0.8rem;
     outline: none;
-    min-width: 180px;
+    min-width: 160px;
+    box-sizing: border-box;
 }
 
 .doc-input::placeholder {
@@ -67,12 +84,156 @@
     color: #e5e7eb;
     font-size: 0.8rem;
     outline: none;
+    box-sizing: border-box;
+    min-width: 140px;
+
+    /* strzałka + miejsce na nią */
+    padding-right: 2.2rem;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+
+    background-image:
+            linear-gradient(45deg, transparent 50%, rgba(229, 231, 235, 0.9) 50%),
+            linear-gradient(135deg, rgba(229, 231, 235, 0.9) 50%, transparent 50%);
+    background-position: calc(100% - 16px) 50%, calc(100% - 11px) 50%;
+    background-size: 6px 6px, 6px 6px;
+    background-repeat: no-repeat;
 }
 
 .doc-select:focus {
     border-color: #2563eb;
     box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.6);
 }
+
+/* Bazowe buttony */
+.doc-btn {
+    border-radius: 999px;
+    border: 1px solid rgba(148, 163, 184, 0.6);
+    padding: 0.28rem 0.7rem;
+    font-size: 0.75rem;
+    cursor: pointer;
+    background: transparent;
+    color: #e5e7eb;
+    transition: background 0.12s ease, border-color 0.12s ease, transform 0.08s ease;
+    box-sizing: border-box;
+    white-space: nowrap;
+}
+
+.doc-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.doc-btn--ghost:hover {
+    background: rgba(37, 99, 235, 0.25);
+    border-color: rgba(59, 130, 246, 0.9);
+    transform: translateY(-0.5px);
+}
+
+.doc-btn--edit {
+    background: rgba(15, 23, 42, 0.9);
+    border-color: rgba(246, 193, 59, 0.9);
+    transform: translateY(-0.5px);
+}
+
+.doc-btn--edit:hover {
+    background: rgba(235, 219, 37, 0.25);
+    border-color: rgba(246, 193, 59, 0.9);
+    transform: translateY(-0.5px);
+}
+
+.doc-btn--danger {
+    border-color: rgba(239, 68, 68, 0.65);
+}
+
+.doc-btn--danger:hover {
+    background: rgba(239, 68, 68, 0.18);
+    border-color: rgba(239, 68, 68, 0.95);
+    transform: translateY(-0.5px);
+}
+
+.doc-btn--primary {
+    background: rgba(37, 99, 235, 0.22);
+    border-color: rgba(59, 130, 246, 0.9);
+}
+
+.doc-btn--primary:hover {
+    background: rgba(37, 99, 235, 1);
+    transform: translateY(-0.5px);
+}
+
+/* ✅ Toolbar: takie same wysokości jak w CompanyList (40px) */
+.doc-toolbar .doc-input,
+.doc-toolbar .doc-select,
+.doc-toolbar .doc-btn {
+    height: 40px;
+    display: inline-flex;
+    align-items: center;
+}
+
+/* dopasuj padding/line-height w toolbarze (jak company-search) */
+.doc-toolbar .doc-input,
+.doc-toolbar .doc-select {
+    padding-top: 0;
+    padding-bottom: 0;
+    padding-left: 0.85rem;
+    padding-right: 0.85rem;
+    line-height: 40px;
+}
+
+.doc-toolbar .doc-select {
+    padding-right: 2.2rem; /* miejsce na strzałkę */
+}
+
+.doc-toolbar .doc-btn {
+    padding: 0 0.95rem; /* toolbarowe przyciski (Odśwież/+Dodaj) */
+    line-height: 1;
+}
+
+/* ✅ Rząd formularza dodawania (inputy + Zapisz) */
+.doc-row {
+    display: flex;
+    gap: 0.45rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.doc-row .doc-input,
+.doc-row .doc-select,
+.doc-row .doc-btn {
+    height: 40px;
+    display: inline-flex;
+    align-items: center;
+}
+
+/* inputy w tym rzędzie – tak samo jak w toolbarze */
+.doc-row .doc-input,
+.doc-row .doc-select {
+    padding-top: 0;
+    padding-bottom: 0;
+    padding-left: 0.85rem;
+    padding-right: 0.85rem;
+    line-height: 40px;
+}
+
+/* przycisk Zapisz – padding “toolbarowy” */
+.doc-row .doc-btn {
+    padding: 0 0.95rem;
+    line-height: 1;
+}
+
+/* ✅ MINI przyciski do tabeli (Edytuj/Usuń/Szczegóły itd.) — jak w CompanyList */
+.doc-btn--sm {
+    height: 30px;
+    padding: 0 0.65rem;
+    font-size: 0.72rem;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+}
+
+/* ===== Tabela ===== */
 
 .doc-info {
     font-size: 0.85rem;
@@ -165,34 +326,8 @@
     color: #dcfce7;
 }
 
-.doc-btn {
-    border-radius: 999px;
-    border: 1px solid rgba(148, 163, 184, 0.6);
-    padding: 0.28rem 0.7rem;
-    font-size: 0.75rem;
-    cursor: pointer;
-    background: transparent;
-    color: #e5e7eb;
-    transition: background 0.12s ease, border-color 0.12s ease, transform 0.08s ease;
-}
-
-.doc-btn:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-}
-
-.doc-btn--ghost:hover {
-    background: rgba(37, 99, 235, 0.25);
-    border-color: rgba(59, 130, 246, 0.9);
-    transform: translateY(-0.5px);
-}
-
-.doc-btn--primary {
-    background: rgba(37, 99, 235, 0.22);
-    border-color: rgba(59, 130, 246, 0.9);
-}
-
-.doc-btn--primary:hover {
-    background: rgba(37, 99, 235, 0.35);
-    transform: translateY(-0.5px);
+.doc-table th:last-child,
+.doc-table td:last-child {
+    text-align: right;
+    padding-right: 0.9rem;
 }

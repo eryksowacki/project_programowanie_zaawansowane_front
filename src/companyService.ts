@@ -57,18 +57,26 @@ export async function updateCompany(
     });
 }
 
+// src/companyService.ts (fragment)
 export async function deleteCompany(id: number): Promise<void> {
-    // 204 -> apiFetch próbuje json() i wywali błąd, więc tu robimy ręcznie fetch
-    const res = await fetch(`http://localhost:8000/api/admin/companies/${id}`, {
+    const res = await fetch(`/api/admin/companies/${id}`, {
         method: "DELETE",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Accept": "application/json" },
     });
 
-    if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`API error ${res.status}: ${text}`);
+    if (res.status === 204) return;
+
+    let data: any = null;
+    try {
+        data = await res.json();
+    } catch {
+        // brak body
     }
+
+    const err: any = new Error(data?.message || `HTTP ${res.status}`);
+    err.status = res.status;
+    err.data = data;
+    throw err;
 }
 
 export async function listCompanyUsers(companyId: number): Promise<CompanyUserRow[]> {

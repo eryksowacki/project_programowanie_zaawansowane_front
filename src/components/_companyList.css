@@ -37,7 +37,7 @@
     color: #e5e7eb;
     font-size: 0.8rem;
     outline: none;
-    min-width: 180px;
+    min-width: 160px;
 }
 
 .company-search input::placeholder {
@@ -62,6 +62,8 @@
 }
 
 .company-error-row {
+    font-size: 0.85rem;
+    padding: 0.3rem 0;
     color: #fecaca;
 }
 
@@ -159,6 +161,18 @@
     transform: translateY(-0.5px);
 }
 
+.company-btn--edit {
+    background: rgba(15, 23, 42, 0.9);
+    border-color: rgba(246, 193, 59, 0.9);
+    transform: translateY(-0.5px);
+}
+
+.company-btn--edit:hover {
+    background: rgba(235, 219, 37, 0.25);
+    border-color: rgba(246, 193, 59, 0.9);
+    transform: translateY(-0.5px);
+}
+
 @media (max-width: 640px) {
     .company-header {
         flex-direction: column;
@@ -193,8 +207,8 @@
 }
 
 .company-btn--primary {
-    background: rgba(37, 99, 235, 0.9);
-    border-color: rgba(59, 130, 246, 0.95);
+    background: rgba(37, 99, 235, 0.22);
+    border-color: rgba(59, 130, 246, 0.9);
 }
 
 .company-btn--primary:hover {
@@ -363,4 +377,66 @@
     border: 1px solid rgba(239, 68, 68, 0.25);
     padding: 0.55rem 0.7rem;
     border-radius: 0.9rem;
+}
+
+/* =========================================================
+   ✅ DOPASOWANIA DO TOOLBARA + SELECT + "AKCJE" (NOWE)
+   ========================================================= */
+
+/* równa wysokość: input/select/button w company-search */
+.company-search input,
+.company-search select,
+.company-search .company-btn {
+    height: 40px;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+}
+
+/* input/select: wygodny padding w poziomie */
+.company-search input,
+.company-search select {
+    padding-top: 0;
+    padding-bottom: 0;
+    padding-left: 0.85rem;
+    padding-right: 0.85rem;
+    line-height: 40px;
+}
+
+/* button: równa wysokość i tekst wycentrowany */
+.company-search .company-btn {
+    padding: 0 0.95rem;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+/* select: miejsce na strzałkę + własna strzałka, żeby nie nachodziła */
+.company-search select {
+    padding-right: 2.2rem;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+
+    background-image:
+            linear-gradient(45deg, transparent 50%, rgba(229, 231, 235, 0.9) 50%),
+            linear-gradient(135deg, rgba(229, 231, 235, 0.9) 50%, transparent 50%);
+    background-position: calc(100% - 18px) 50%, calc(100% - 13px) 50%;
+    background-size: 6px 6px, 6px 6px;
+    background-repeat: no-repeat;
+}
+
+/* "Akcje" po prawej: nagłówek + komórki */
+.company-table th:last-child,
+.company-table td:last-child {
+    text-align: right;
+}
+
+/* przyciski w akcjach wyrównane do prawej */
+.company-actions {
+    justify-content: flex-end;
+    gap: 0.45rem;
+}
+
+.company-actions .company-btn {
+    white-space: nowrap;
 }

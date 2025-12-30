@@ -2,7 +2,7 @@
 
 export type Role =
     | "ROLE_SYSTEM_ADMIN"
-    | "ROLE_COMPANY_ADMIN"
+    // | "ROLE_COMPANY_ADMIN"
     | "ROLE_MANAGER"
     | "ROLE_EMPLOYEE"
     | string;
@@ -21,6 +21,7 @@ export interface Company {
     taxId: string | null;
     address: string | null;
     active: boolean;
+    vatActive?: boolean;
 }
 
 export interface CompanyCreateRequest {
@@ -28,6 +29,7 @@ export interface CompanyCreateRequest {
     taxId?: string | null;
     address?: string | null;
     active?: boolean;
+    vatActive?: boolean;
 }
 
 export interface CompanyUpdateRequest {
@@ -35,6 +37,7 @@ export interface CompanyUpdateRequest {
     taxId?: string | null;
     address?: string | null;
     active?: boolean;
+    vatActive?: boolean;
 }
 
 export interface CompanyUserRow {
@@ -64,7 +67,7 @@ export interface AdminUserUpdateRequest {
 }
 
 /* =========================================================
- *  KSIĘGOWOŚĆ: Kategorie / Kontrahenci / Dokumenty / Rejestr
+ *  KSIĘGOWOŚĆ: Kategorie / Kontrahenci / Dokumenty / Księga
  * ========================================================= */
 
 export type DocumentType = "INCOME" | "COST" | string;
@@ -133,17 +136,18 @@ export interface DocumentRow {
     ledgerNumber: number | null;
 }
 
-export interface DocumentCreateRequest {
-    type: DocumentType;              // INCOME / COST
-    issueDate: string;               // YYYY-MM-DD
-    eventDate: string;               // YYYY-MM-DD
-    description?: string | null;
+export type DocumentCreateRequest = {
+    invoiceNumber: string;
+    type: DocumentType;
+    issueDate: string;
+    eventDate: string;
+    description: string | null;
     netAmount: number;
     vatAmount: number;
     grossAmount: number;
-    categoryId?: number | null;
-    contractorId?: number | null;
-}
+    categoryId: number | null;
+    contractorId: number | null;
+};
 
 export interface CategoryCreateRequest {
     name: string;

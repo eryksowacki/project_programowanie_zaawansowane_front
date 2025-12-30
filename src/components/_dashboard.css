@@ -112,12 +112,30 @@
     color: #9ca3af;
 }
 
+/*.dash-header-right {*/
+/*    display: flex;*/
+/*    align-items: center;*/
+/*    gap: 1rem;*/
+/*}*/
+
+/*.dash-user-chip {*/
+/*    display: flex;*/
+/*    align-items: center;*/
+/*    gap: 0.6rem;*/
+/*    padding: 0.35rem 0.75rem 0.35rem 0.35rem;*/
+/*    border-radius: 999px;*/
+/*    background: rgba(15, 23, 42, 0.9);*/
+/*    border: 1px solid rgba(148, 163, 184, 0.4);*/
+/*}*/
+
+/* Header right side */
 .dash-header-right {
     display: flex;
-    align-items: center;
+    align-items: stretch; /* <- ważne: pozwala rozciągnąć elementy do tej samej wysokości */
     gap: 1rem;
 }
 
+/* Chip: nadaj konkretną wysokość */
 .dash-user-chip {
     display: flex;
     align-items: center;
@@ -126,6 +144,36 @@
     border-radius: 999px;
     background: rgba(15, 23, 42, 0.9);
     border: 1px solid rgba(148, 163, 184, 0.4);
+
+    min-height: 44px; /* <- kontrolujemy docelową wysokość */
+    box-sizing: border-box;
+}
+
+/* Logout: ta sama wysokość + wyśrodkowanie */
+.dash-logout-btn {
+    min-height: 44px;              /* <- identycznie jak chip */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    border: none;
+    border-radius: 999px;
+    padding: 0 1.1rem;             /* <- pionowe paddingi usuwamy, bo wysokość mamy z min-height */
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+
+    background: rgba(15, 23, 42, 0.9);
+    color: #e5e7eb;
+    border: 1px solid rgba(239, 68, 68, 0.65); /* <- danger border */
+
+    transition:
+            background 0.15s ease,
+            transform 0.1s ease,
+            box-shadow 0.15s ease,
+            border-color 0.15s ease;
 }
 
 .dash-user-avatar {
@@ -170,6 +218,8 @@
     background: rgba(15, 23, 42, 0.9);
     color: #e5e7eb;
     border: 1px solid rgba(148, 163, 184, 0.6);
+    /*background: rgba(239, 68, 68, 0.18);*/
+    border-color: rgba(239, 68, 68, 0.95);
     transition:
             background 0.15s ease,
             transform 0.1s ease,
@@ -177,9 +227,10 @@
 }
 
 .dash-logout-btn:hover {
-    background: rgba(30, 64, 175, 0.9);
+    background: rgba(239, 68, 68, 0.18);
+    border-color: rgba(239, 68, 68, 0.95);
     box-shadow: 0 10px 28px rgba(15, 23, 42, 0.9);
-    transform: translateY(-1px);
+    transform: translateY(-0.5px);
 }
 
 .dash-logout-btn:active {

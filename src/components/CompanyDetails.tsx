@@ -202,6 +202,10 @@ const CompanyDetails: React.FC<Props> = ({ user, onLogout }) => {
                                         <span>Status</span>
                                         <strong>{company.active ? "aktywna" : "nieaktywna"}</strong>
                                     </div>
+                                    <div className="cd-kvrow">
+                                        <span>Status VAT</span>
+                                        <strong>{company.vatActive ? "czynna" : "nieczynna"}</strong>
+                                    </div>
                                 </div>
                             </div>
 

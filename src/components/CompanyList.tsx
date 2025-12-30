@@ -7,6 +7,32 @@ import { ConfirmDialog } from "./ConfirmDialog";
 import "./_companyList.css";
 import { useNavigate } from "react-router-dom";
 
+function getApiErrorPayload(e: any): { status?: number; message?: string; code?: string } {
+    const status = e?.status ?? e?.response?.status;
+    const data = e?.data ?? e?.response?.data;
+
+    return {
+        status,
+        message: data?.message ?? e?.message,
+        code: data?.code,
+    };
+}
+
+function mapDeleteCompanyError(e: any): string {
+    const { status, code, message } = getApiErrorPayload(e);
+
+    if (status === 409 && code === "COMPANY_IN_USE") {
+        return "Nie można usunąć firmy, ponieważ jest używana (np. w kategoriach). Usuń powiązane elementy lub przypisz je do innej firmy.";
+    }
+
+    if (status === 404) {
+        return "Nie znaleziono firmy (możliwe, że została już usunięta).";
+    }
+
+    // fallback – pokaż przynajmniej message z backendu
+    return message ? `Nie udało się usunąć firmy: ${message}` : "Nie udało się usunąć firmy.";
+}
+
 export const CompanyList: React.FC = () => {
     const [companies, setCompanies] = useState<Company[]>([]);
     const [loading, setLoading] = useState(true);
@@ -42,10 +68,10 @@ export const CompanyList: React.FC = () => {
 
     // debounce dla search/filtra (i jeden efekt zamiast dwóch)
     useEffect(() => {
-        const t = setTimeout(() => {
+        const t = window.setTimeout(() => {
             load();
         }, 250);
-        return () => clearTimeout(t);
+        return () => window.clearTimeout(t);
     }, [load]);
 
     const rows = useMemo(() => companies, [companies]);
@@ -59,6 +85,7 @@ export const CompanyList: React.FC = () => {
         } catch (e) {
             console.error(e);
             setError("Nie udało się dodać firmy.");
+            // tu nie rzucamy – błąd jest poza ConfirmDialog
         }
     };
 
@@ -73,20 +100,21 @@ export const CompanyList: React.FC = () => {
         } catch (e) {
             console.error(e);
             setError("Nie udało się zaktualizować firmy.");
+            // tu nie rzucamy – błąd jest poza ConfirmDialog
         }
     };
 
-    const handleDelete = async () => {
+    // UWAGA: ta funkcja jest wywoływana z ConfirmDialog -> musi rzucać Error("...") żeby modal pokazał powód
+    const handleDelete = async (): Promise<void> => {
         if (!deleteTarget) return;
 
-        setError(null);
         try {
             await deleteCompany(deleteTarget.id);
             setDeleteTarget(null);
             await load();
         } catch (e) {
             console.error(e);
-            setError("Nie udało się usunąć firmy.");
+            throw new Error(mapDeleteCompanyError(e));
         }
     };
 
@@ -122,19 +150,19 @@ export const CompanyList: React.FC = () => {
 
                     <button
                         type="button"
-                        className="company-btn company-btn--primary"
-                        onClick={() => setCreateOpen(true)}
-                    >
-                        + Dodaj
-                    </button>
-
-                    <button
-                        type="button"
                         className="company-btn company-btn--ghost"
                         onClick={load}
                         disabled={loading}
                     >
                         Odśwież
+                    </button>
+
+                    <button
+                        type="button"
+                        className="company-btn company-btn--primary"
+                        onClick={() => setCreateOpen(true)}
+                    >
+                        + Dodaj
                     </button>
                 </div>
             </div>
@@ -150,7 +178,9 @@ export const CompanyList: React.FC = () => {
                             <th>ID</th>
                             <th>Nazwa</th>
                             <th>NIP</th>
+                            <th>Adres</th>
                             <th>Status</th>
+                            <th>Status VAT</th>
                             <th>Akcje</th>
                         </tr>
                         </thead>
@@ -167,11 +197,19 @@ export const CompanyList: React.FC = () => {
                                     <td>{c.id}</td>
                                     <td>{c.name}</td>
                                     <td>{c.taxId ?? "—"}</td>
+                                    <td>{c.address ?? "—"}</td>
                                     <td>
                                         {c.active ? (
                                             <span className="company-badge company-badge--ok">aktywna</span>
                                         ) : (
                                             <span className="company-badge company-badge--muted">nieaktywna</span>
+                                        )}
+                                    </td>
+                                    <td>
+                                        {c.vatActive ? (
+                                            <span className="company-badge company-badge--ok">czynna</span>
+                                        ) : (
+                                            <span className="company-badge company-badge--muted">nieczynna</span>
                                         )}
                                     </td>
                                     <td className="company-actions">
@@ -182,13 +220,15 @@ export const CompanyList: React.FC = () => {
                                         >
                                             Szczegóły
                                         </button>
+
                                         <button
                                             type="button"
-                                            className="company-btn company-btn--ghost"
+                                            className="company-btn company-btn--edit"
                                             onClick={() => setEditCompany(c)}
                                         >
                                             Edytuj
                                         </button>
+
                                         <button
                                             type="button"
                                             className="company-btn company-btn--danger"

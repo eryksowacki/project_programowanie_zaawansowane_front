@@ -79,7 +79,6 @@ export const UserModal: React.FC<Props> = ({ companyId, onClose, onSubmit }) => 
                         <select value={role} onChange={(e) => setRole(e.target.value)}>
                             <option value="ROLE_EMPLOYEE">Pracownik</option>
                             <option value="ROLE_MANAGER">Kierownik</option>
-                            <option value="ROLE_COMPANY_ADMIN">Admin firmy</option>
                         </select>
                     </label>
 

@@ -2,10 +2,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import type { CategoryRow, User } from "../types";
 import { createCategory, deleteCategory, listCategories, updateCategory } from "../categoryService";
+import { ConfirmDialog } from "./ConfirmDialog";
 
 type Props = {
-    user: User;      // na razie nieużywane, ale zostawiamy do ewentualnych uprawnień/UI
-    canEdit: boolean; // tylko MANAGER = true
+    user: User;
+    canEdit: boolean; // zostawiamy dla kompatybilności z miejscem użycia, ale NIE używamy
 };
 
 type CategoryType = "INCOME" | "COST";
@@ -17,7 +18,36 @@ const TYPE_OPTIONS: Array<{ value: TypeFilter; label: string }> = [
     { value: "COST", label: "Koszt" },
 ];
 
-export const CategoryList: React.FC<Props> = ({ user, canEdit }) => {
+type DeleteTarget = { id: number; name: string };
+
+function getApiErrorMessage(err: unknown): string | null {
+    const anyErr = err as any;
+
+    const msg1 = anyErr?.response?.data?.message;
+    if (typeof msg1 === "string" && msg1.trim()) return msg1;
+
+    const msg2 = anyErr?.data?.message;
+    if (typeof msg2 === "string" && msg2.trim()) return msg2;
+
+    const msg3 = anyErr?.message;
+    if (typeof msg3 === "string" && msg3.trim()) return msg3;
+
+    return null;
+}
+
+function isAdmin(user: User): boolean {
+    const role = user.role ?? "";
+    const roles = user.roles ?? [];
+    return (
+        role === "ROLE_SYSTEM_ADMIN" ||
+        roles.includes("ROLE_SYSTEM_ADMIN")
+    );
+}
+
+export const CategoryList: React.FC<Props> = ({ user }) => {
+    // ✅ tylko administrator może edytować (prop canEdit ignorujemy)
+    const canEdit = isAdmin(user);
+
     const [items, setItems] = useState<CategoryRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -29,12 +59,16 @@ export const CategoryList: React.FC<Props> = ({ user, canEdit }) => {
     const [createOpen, setCreateOpen] = useState(false);
     const [newName, setNewName] = useState("");
     const [newType, setNewType] = useState<CategoryType>("COST");
-    const [saving, setSaving] = useState(false);
 
     // edit
     const [editId, setEditId] = useState<number | null>(null);
     const [editName, setEditName] = useState("");
     const [editType, setEditType] = useState<CategoryType>("COST");
+
+    const [saving, setSaving] = useState(false);
+
+    // delete modal
+    const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
 
     const load = async () => {
         setLoading(true);
@@ -64,9 +98,9 @@ export const CategoryList: React.FC<Props> = ({ user, canEdit }) => {
     }, [items, q]);
 
     const startEdit = (c: CategoryRow) => {
+        if (!canEdit) return;
         setEditId(c.id);
         setEditName(c.name ?? "");
-        // backend zwraca "INCOME"/"COST", ale zabezpieczamy się:
         setEditType((c.type === "INCOME" || c.type === "COST" ? c.type : "COST") as CategoryType);
     };
 
@@ -77,9 +111,12 @@ export const CategoryList: React.FC<Props> = ({ user, canEdit }) => {
     };
 
     const handleCreate = async () => {
+        if (!canEdit) return;
+
+        setError(null);
         const name = newName.trim();
         if (!name) {
-            alert("Podaj nazwę kategorii.");
+            setError("Podaj nazwę kategorii.");
             return;
         }
 
@@ -92,16 +129,19 @@ export const CategoryList: React.FC<Props> = ({ user, canEdit }) => {
             await load();
         } catch (e) {
             console.error(e);
-            alert("Nie udało się dodać kategorii.");
+            setError("Nie udało się dodać kategorii.");
         } finally {
             setSaving(false);
         }
     };
 
     const handleSaveEdit = async (id: number) => {
+        if (!canEdit) return;
+
+        setError(null);
         const name = editName.trim();
         if (!name) {
-            alert("Nazwa nie może być pusta.");
+            setError("Nazwa nie może być pusta.");
             return;
         }
 
@@ -112,24 +152,34 @@ export const CategoryList: React.FC<Props> = ({ user, canEdit }) => {
             await load();
         } catch (e) {
             console.error(e);
-            alert("Nie udało się zapisać zmian.");
+            setError("Nie udało się zapisać zmian.");
         } finally {
             setSaving(false);
         }
     };
 
-    const handleDelete = async (id: number) => {
-        if (!window.confirm("Usunąć kategorię?")) return;
+    const requestDelete = (c: CategoryRow) => {
+        if (!canEdit) return;
+        setError(null);
+        setDeleteTarget({ id: c.id, name: c.name ?? `ID ${c.id}` });
+    };
+
+    const confirmDelete = async () => {
+        if (!deleteTarget) return;
+        if (!canEdit) return;
 
         setSaving(true);
+        setError(null);
+
         try {
-            await deleteCategory(id);
-            // jeśli usunąłeś aktualnie edytowaną:
-            if (editId === id) cancelEdit();
+            await deleteCategory(deleteTarget.id);
+
+            if (editId === deleteTarget.id) cancelEdit();
+            setDeleteTarget(null);
             await load();
         } catch (e) {
-            console.error(e);
-            alert("Nie udało się usunąć kategorii.");
+            const msg = getApiErrorMessage(e) ?? "Nie udało się usunąć kategorii.";
+            throw new Error(msg); // ConfirmDialog pokaże to przez 7s
         } finally {
             setSaving(false);
         }
@@ -142,7 +192,7 @@ export const CategoryList: React.FC<Props> = ({ user, canEdit }) => {
                     <h2>Kategorie</h2>
                     <p>
                         Kategorie są przypisane do Twojej firmy.{" "}
-                        {canEdit ? "Możesz dodawać/edytować/usuwać." : "Masz tylko podgląd."}
+                        {canEdit ? "Możesz dodawać/edytować/usuwać (ADMIN)." : "Masz tylko podgląd."}
                     </p>
                 </div>
 
@@ -242,6 +292,7 @@ export const CategoryList: React.FC<Props> = ({ user, canEdit }) => {
                                                     className="doc-input"
                                                     value={editName}
                                                     onChange={(e) => setEditName(e.target.value)}
+                                                    disabled={!canEdit}
                                                 />
                                             ) : (
                                                 c.name
@@ -254,6 +305,7 @@ export const CategoryList: React.FC<Props> = ({ user, canEdit }) => {
                                                     className="doc-select"
                                                     value={editType}
                                                     onChange={(e) => setEditType(e.target.value as CategoryType)}
+                                                    disabled={!canEdit}
                                                 >
                                                     <option value="INCOME">Przychód</option>
                                                     <option value="COST">Koszt</option>
@@ -267,7 +319,7 @@ export const CategoryList: React.FC<Props> = ({ user, canEdit }) => {
                                             )}
                                         </td>
 
-                                        <td style={{ whiteSpace: "nowrap" }}>
+                                        <td className="doc-actions" style={{ whiteSpace: "nowrap" }}>
                                             {!canEdit ? (
                                                 <button className="doc-btn" type="button" disabled>
                                                     —
@@ -295,7 +347,7 @@ export const CategoryList: React.FC<Props> = ({ user, canEdit }) => {
                                             ) : (
                                                 <>
                                                     <button
-                                                        className="doc-btn doc-btn--ghost"
+                                                        className="doc-btn doc-btn--edit"
                                                         type="button"
                                                         onClick={() => startEdit(c)}
                                                         disabled={saving}
@@ -303,9 +355,9 @@ export const CategoryList: React.FC<Props> = ({ user, canEdit }) => {
                                                         Edytuj
                                                     </button>
                                                     <button
-                                                        className="doc-btn"
+                                                        className="doc-btn doc-btn--danger"
                                                         type="button"
-                                                        onClick={() => handleDelete(c.id)}
+                                                        onClick={() => requestDelete(c)}
                                                         disabled={saving}
                                                         style={{ marginLeft: 8 }}
                                                     >
@@ -321,6 +373,17 @@ export const CategoryList: React.FC<Props> = ({ user, canEdit }) => {
                         </tbody>
                     </table>
                 </div>
+            )}
+
+            {deleteTarget && (
+                <ConfirmDialog
+                    title="Usunąć kategorię?"
+                    description={`Ta operacja jest nieodwracalna. Kategoria: ${deleteTarget.name}`}
+                    confirmText="Usuń"
+                    danger
+                    onCancel={() => setDeleteTarget(null)}
+                    onConfirm={confirmDelete}
+                />
             )}
         </div>
     );

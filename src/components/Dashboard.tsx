@@ -1,5 +1,5 @@
 // src/components/Dashboard.tsx
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import type { User } from "../types";
 import "./_dashboard.css";
 import { CompanyList } from "./CompanyList";
@@ -13,62 +13,136 @@ interface DashboardProps {
     onLogout: () => void;
 }
 
-type UserViewMode = "documents" | "ledger" | "categories" | "contractors";
+type ViewMode = "documents" | "ledger" | "categories" | "contractors" | "companies";
+
+// --- Helpers: obsłuż role jako string ALBO obiekt {code,name} ---
+type RoleLike = string | { code?: string; name?: string } | null | undefined;
+
+const roleToCode = (role: RoleLike): string | null => {
+    if (!role) return null;
+    if (typeof role === "string") return role;
+    if (typeof role === "object" && typeof role.code === "string") return role.code;
+    return null;
+};
+
+const roleToLabel = (role: RoleLike): string => {
+    if (!role) return "";
+    if (typeof role === "string") return role.replace(/^ROLE_/, "").replace(/^SYSTEM_/, "SYSTEM_");
+    if (typeof role === "object") {
+        if (typeof role.name === "string" && role.name.trim() !== "") return role.name;
+        if (typeof role.code === "string") return role.code.replace(/^ROLE_/, "");
+    }
+    return "";
+};
+
+const normalizeRoleCodes = (user: User): string[] => {
+    const codes = new Set<string>();
+
+    // user.role może być string albo obiekt
+    const main = roleToCode((user as any).role);
+    if (main) codes.add(main);
+
+    // user.roles może być string[] albo obiekt[] albo undefined
+    const list: any[] = Array.isArray((user as any).roles) ? (user as any).roles : [];
+    for (const r of list) {
+        const c = roleToCode(r);
+        if (c) codes.add(c);
+    }
+
+    return Array.from(codes);
+};
 
 const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
-    const isSystemAdmin =
-        user.role === "ROLE_SYSTEM_ADMIN" ||
-        (user.roles ?? []).includes("ROLE_SYSTEM_ADMIN");
+    const roleCodes = useMemo(() => normalizeRoleCodes(user), [user]);
 
-    const showUserDashboard = !isSystemAdmin;
+    const isSystemAdmin = useMemo(() => {
+        // wspieramy obie nazwy, bo w Twoich fixture'ach było SYSTEM_ADMIN
+        return roleCodes.includes("ROLE_SYSTEM_ADMIN") || roleCodes.includes("SYSTEM_ADMIN");
+    }, [roleCodes]);
 
     const isManager = useMemo(() => {
-        const r = user.role;
-        const roles = user.roles ?? [];
-        return r === "ROLE_MANAGER" || roles.includes("ROLE_MANAGER");
-    }, [user.role, user.roles]);
+        return roleCodes.includes("ROLE_MANAGER");
+    }, [roleCodes]);
 
-    const [userMode, setUserMode] = useState<UserViewMode>("documents");
+    // SYSTEM_ADMIN: firmy -> kategorie
+    // firma: dokumenty -> księga -> kategorie -> kontrahenci
+    const [view, setView] = useState<ViewMode>(isSystemAdmin ? "companies" : "documents");
 
-    const UserTabs = () => (
-        <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
-            <button
-                type="button"
-                className="doc-btn doc-btn--primary"
-                onClick={() => setUserMode("documents")}
-                style={{ opacity: userMode === "documents" ? 1 : 0.6 }}
-            >
-                Dokumenty (bufor)
-            </button>
+    // jeśli user/role zmieni się po zalogowaniu (np. async), ustaw widok sensownie
+    useEffect(() => {
+        setView(isSystemAdmin ? "companies" : "documents");
+    }, [isSystemAdmin]);
 
-            <button
-                type="button"
-                className="doc-btn doc-btn--primary"
-                onClick={() => setUserMode("ledger")}
-                style={{ opacity: userMode === "ledger" ? 1 : 0.6 }}
-            >
-                Rejestr (zaksięgowane)
-            </button>
+    const Tabs = () => {
+        if (isSystemAdmin) {
+            return (
+                <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+                    <button
+                        type="button"
+                        className="doc-btn doc-btn--primary"
+                        onClick={() => setView("companies")}
+                        style={{ opacity: view === "companies" ? 1 : 0.6 }}
+                    >
+                        Firmy
+                    </button>
 
-            <button
-                type="button"
-                className="doc-btn doc-btn--primary"
-                onClick={() => setUserMode("categories")}
-                style={{ opacity: userMode === "categories" ? 1 : 0.6 }}
-            >
-                Kategorie
-            </button>
+                    <button
+                        type="button"
+                        className="doc-btn doc-btn--primary"
+                        onClick={() => setView("categories")}
+                        style={{ opacity: view === "categories" ? 1 : 0.6 }}
+                    >
+                        Kategorie
+                    </button>
+                </div>
+            );
+        }
 
-            <button
-                type="button"
-                className="doc-btn doc-btn--primary"
-                onClick={() => setUserMode("contractors")}
-                style={{ opacity: userMode === "contractors" ? 1 : 0.6 }}
-            >
-                Kontrahenci
-            </button>
-        </div>
-    );
+        return (
+            <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+                <button
+                    type="button"
+                    className="doc-btn doc-btn--primary"
+                    onClick={() => setView("documents")}
+                    style={{ opacity: view === "documents" ? 1 : 0.6 }}
+                >
+                    Dokumenty (bufor)
+                </button>
+
+                <button
+                    type="button"
+                    className="doc-btn doc-btn--primary"
+                    onClick={() => setView("ledger")}
+                    style={{ opacity: view === "ledger" ? 1 : 0.6 }}
+                >
+                    Księga (zaksięgowane)
+                </button>
+
+                <button
+                    type="button"
+                    className="doc-btn doc-btn--primary"
+                    onClick={() => setView("categories")}
+                    style={{ opacity: view === "categories" ? 1 : 0.6 }}
+                >
+                    Kategorie
+                </button>
+
+                <button
+                    type="button"
+                    className="doc-btn doc-btn--primary"
+                    onClick={() => setView("contractors")}
+                    style={{ opacity: view === "contractors" ? 1 : 0.6 }}
+                >
+                    Kontrahenci
+                </button>
+            </div>
+        );
+    };
+
+    const avatarLetter =
+        typeof user?.email === "string" && user.email.length > 0 ? user.email.charAt(0).toUpperCase() : "?";
+
+    const roleText = roleToLabel((user as any).role) || roleCodes[0]?.replace(/^ROLE_/, "") || "";
 
     return (
         <div className="dash-page">
@@ -87,10 +161,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
 
                     <div className="dash-header-right">
                         <div className="dash-user-chip">
-                            <div className="dash-user-avatar">{user.email.charAt(0).toUpperCase()}</div>
+                            <div className="dash-user-avatar">{avatarLetter}</div>
                             <div className="dash-user-info">
-                                <span className="dash-user-email">{user.email}</span>
-                                <span className="dash-user-role">{(user.role ?? "").replace("ROLE_", "")}</span>
+                                <span className="dash-user-email">{user?.email ?? ""}</span>
+                                <span className="dash-user-role">{roleText}</span>
                             </div>
                         </div>
 
@@ -100,29 +174,29 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                     </div>
                 </header>
 
-                {/* SYSTEM ADMIN: firmy na pełną szerokość */}
-                {isSystemAdmin && (
-                    <main className="dash-main dash-main--single">
-                        <section className="dash-main-right">
-                            <CompanyList />
-                        </section>
-                    </main>
-                )}
+                <main className="dash-main dash-main--single">
+                    <section className="dash-main-right">
+                        <Tabs />
 
-                {/* USER/KIEROWNIK */}
-                {showUserDashboard && (
-                    <main className="dash-main dash-main--single">
-                        <section className="dash-main-right">
-                            <UserTabs />
+                        {/* SYSTEM_ADMIN: brak dokumentów/księgi */}
+                        {isSystemAdmin && (
+                            <>
+                                {view === "companies" && <CompanyList />}
+                                {view === "categories" && <CategoryList user={user} canEdit={true} />}
+                            </>
+                        )}
 
-                            {userMode === "documents" && <DocumentList user={user} />}
-                            {userMode === "ledger" && <LedgerList />}
-
-                            {userMode === "categories" && <CategoryList user={user} canEdit={isManager} />}
-                            {userMode === "contractors" && <ContractorList user={user} canEdit={isManager} />}
-                        </section>
-                    </main>
-                )}
+                        {/* Użytkownik firmowy */}
+                        {!isSystemAdmin && (
+                            <>
+                                {view === "documents" && <DocumentList user={user} />}
+                                {view === "ledger" && <LedgerList />}
+                                {view === "categories" && <CategoryList user={user} canEdit={isManager} />}
+                                {view === "contractors" && <ContractorList user={user} />}
+                            </>
+                        )}
+                    </section>
+                </main>
             </div>
         </div>
     );

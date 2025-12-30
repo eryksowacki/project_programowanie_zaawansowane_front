@@ -27,6 +27,20 @@ const STATUS_OPTIONS: Array<{ value: string; label: string }> = [
     { value: "BOOKED", label: "Zaksięgowane" },
 ];
 
+/** YYYY-MM-DD / ISO -> dd.mm.YYYY */
+function formatDatePL(value?: string | null): string {
+    if (!value) return "—";
+
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return value; // fallback jakby przyszło coś dziwnego
+
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const yyyy = d.getFullYear();
+
+    return `${dd}.${mm}.${yyyy}`;
+}
+
 export const DocumentList: React.FC<Props> = ({ user }) => {
     const [docs, setDocs] = useState<DocumentRow[]>([]);
     const [loading, setLoading] = useState(true);
@@ -194,7 +208,7 @@ export const DocumentList: React.FC<Props> = ({ user }) => {
                                 return (
                                     <tr key={d.id}>
                                         <td>{d.id}</td>
-                                        <td>{d.eventDate}</td>
+                                        <td>{formatDatePL(d.eventDate)}</td>
                                         <td>
                                             {d.type === "INCOME"
                                                 ? "Przychód"

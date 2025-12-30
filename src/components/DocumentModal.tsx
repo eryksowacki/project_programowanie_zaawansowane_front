@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
+// src/components/DocumentModal.tsx
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { CategoryRow, ContractorRow, DocumentCreateRequest, DocumentType } from "../types";
 import { listCategories } from "../categoryService";
 import { listContractors } from "../contractorService";
@@ -22,7 +23,26 @@ function todayISO(): string {
     return `${yyyy}-${mm}-${dd}`;
 }
 
+function toMoneyString(n: number): string {
+    if (!Number.isFinite(n)) return "0.00";
+    return n.toFixed(2);
+}
+
+function parseNumberSafe(s: string): number | null {
+    // pozwól na "1,23" (PL) i "1.23"
+    const normalized = (s ?? "").replace(",", ".");
+    const n = Number(normalized);
+    return Number.isFinite(n) ? n : null;
+}
+
+function getApiMessage(err: any): string | null {
+    const msg = err?.data?.message ?? err?.response?.data?.message ?? err?.message;
+    return typeof msg === "string" && msg.trim() ? msg : null;
+}
+
 export const DocumentModal: React.FC<Props> = ({ onClose, onSubmit }) => {
+    const [invoiceNumber, setInvoiceNumber] = useState<string>("");
+
     const [type, setType] = useState<DocumentType>("COST");
     const [issueDate, setIssueDate] = useState(todayISO());
     const [eventDate, setEventDate] = useState(todayISO());
@@ -37,10 +57,16 @@ export const DocumentModal: React.FC<Props> = ({ onClose, onSubmit }) => {
     const [categoryId, setCategoryId] = useState<number | null>(null);
     const [contractorId, setContractorId] = useState<number | null>(null);
 
+    // kontrahent search (combo)
+    const [contractorQuery, setContractorQuery] = useState("");
+    const [contractorOpen, setContractorOpen] = useState(false);
+    const blurTimerRef = useRef<number | null>(null);
+
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    // ESC zamyka modal
     useEffect(() => {
         const onKeyDown = (e: KeyboardEvent) => {
             if (e.key === "Escape") onClose();
@@ -49,6 +75,17 @@ export const DocumentModal: React.FC<Props> = ({ onClose, onSubmit }) => {
         return () => window.removeEventListener("keydown", onKeyDown);
     }, [onClose]);
 
+    // AUTO: gross = net * (1 + vat%/100)
+    useEffect(() => {
+        const n = parseNumberSafe(netAmount);
+        const vatPct = parseNumberSafe(vatAmount); // tutaj VAT jest procentem
+        if (n === null || vatPct === null) return;
+
+        const gross = n * (1 + vatPct / 100);
+        setGrossAmount(toMoneyString(gross));
+    }, [netAmount, vatAmount]);
+
+    // pobierz kategorie/kontrahentów
     useEffect(() => {
         let alive = true;
 
@@ -56,18 +93,25 @@ export const DocumentModal: React.FC<Props> = ({ onClose, onSubmit }) => {
             setLoading(true);
             setError(null);
             try {
-                const [cats, cons] = await Promise.all([
-                    listCategories({ type }),
-                    listContractors(),
-                ]);
-
+                const [cats, cons] = await Promise.all([listCategories({ type }), listContractors()]);
                 if (!alive) return;
+
                 setCategories(cats);
                 setContractors(cons);
 
-                // reset wyborów, jeśli nie pasują do nowej listy
                 if (!cats.some((c) => c.id === categoryId)) setCategoryId(null);
-                if (!cons.some((c) => c.id === contractorId)) setContractorId(null);
+
+                // jeśli wybrany kontrahent zniknął -> reset
+                if (contractorId !== null && !cons.some((c) => c.id === contractorId)) {
+                    setContractorId(null);
+                    setContractorQuery("");
+                } else if (contractorId !== null) {
+                    // ustaw label w polu wyszukiwania (po reloadzie)
+                    const selected = cons.find((x) => x.id === contractorId);
+                    if (selected) {
+                        setContractorQuery(`${selected.name}${selected.taxId ? ` (${selected.taxId})` : ""}`);
+                    }
+                }
             } catch (e) {
                 console.error(e);
                 if (!alive) return;
@@ -85,29 +129,58 @@ export const DocumentModal: React.FC<Props> = ({ onClose, onSubmit }) => {
     }, [type]);
 
     const numbersOk = useMemo(() => {
-        const n = Number(netAmount);
-        const v = Number(vatAmount);
-        const g = Number(grossAmount);
-        return Number.isFinite(n) && Number.isFinite(v) && Number.isFinite(g);
-    }, [netAmount, vatAmount, grossAmount]);
+        const n = parseNumberSafe(netAmount);
+        const v = parseNumberSafe(vatAmount);
+        return n !== null && v !== null;
+    }, [netAmount, vatAmount]);
+
+    const filteredContractors = useMemo(() => {
+        const q = contractorQuery.trim().toLowerCase();
+        if (!q) return contractors;
+
+        return contractors.filter((c) => {
+            const name = (c.name ?? "").toLowerCase();
+            const nip = (c.taxId ?? "").toLowerCase();
+            return name.includes(q) || nip.includes(q);
+        });
+    }, [contractors, contractorQuery]);
+
+    const clearBlurTimer = () => {
+        if (blurTimerRef.current) {
+            window.clearTimeout(blurTimerRef.current);
+            blurTimerRef.current = null;
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
 
-        if (!numbersOk) {
-            setError("Kwoty muszą być liczbami.");
+        if (!invoiceNumber.trim()) {
+            setError("Numer faktury jest wymagany.");
             return;
         }
 
+        if (!numbersOk) {
+            setError("Kwoty (Netto i VAT) muszą być liczbami.");
+            return;
+        }
+
+        const n = parseNumberSafe(netAmount)!;
+        const vatPct = parseNumberSafe(vatAmount)!;
+
+        const vatValue = n * (vatPct / 100);
+        const g = n + vatValue;
+
         const payload: DocumentCreateRequest = {
+            invoiceNumber: invoiceNumber.trim(),
             type,
             issueDate,
             eventDate,
             description: description.trim() ? description.trim() : null,
-            netAmount: Number(netAmount),
-            vatAmount: Number(vatAmount),
-            grossAmount: Number(grossAmount),
+            netAmount: n,
+            vatAmount: vatValue,
+            grossAmount: g,
             categoryId,
             contractorId,
         };
@@ -116,9 +189,9 @@ export const DocumentModal: React.FC<Props> = ({ onClose, onSubmit }) => {
         try {
             await onSubmit(payload);
             onClose();
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
-            setError("Nie udało się dodać dokumentu.");
+            setError(getApiMessage(err) ?? "Nie udało się dodać dokumentu.");
         } finally {
             setSaving(false);
         }
@@ -133,7 +206,7 @@ export const DocumentModal: React.FC<Props> = ({ onClose, onSubmit }) => {
                         <div className="dm-subtitle">Zapisze się w buforze (BUFFER).</div>
                     </div>
 
-                    <button type="button" className="dm-x" onClick={onClose}>
+                    <button type="button" className="dm-x" onClick={onClose} aria-label="Zamknij">
                         ✕
                     </button>
                 </div>
@@ -143,39 +216,60 @@ export const DocumentModal: React.FC<Props> = ({ onClose, onSubmit }) => {
 
                 <form className="dm-form" onSubmit={handleSubmit}>
                     <div className="dm-grid">
-                        <label className="dm-label">
-                            Typ
-                            <select className="dm-input" value={type} onChange={(e) => setType(e.target.value)}>
-                                {TYPE_OPTIONS.map((o) => (
-                                    <option key={o.value} value={o.value}>
-                                        {o.label}
-                                    </option>
-                                ))}
-                            </select>
-                        </label>
-
-                        <label className="dm-label">
-                            Data wystawienia
+                        {/* Numer faktury — 100% */}
+                        <label className="dm-label dm-span-2">
+                            Numer faktury
                             <input
-                                type="date"
+                                type="text"
                                 className="dm-input"
-                                value={issueDate}
-                                onChange={(e) => setIssueDate(e.target.value)}
+                                value={invoiceNumber}
+                                onChange={(e) => setInvoiceNumber(e.target.value)}
+                                placeholder="np. FV/12/2025"
                                 required
                             />
                         </label>
 
-                        <label className="dm-label">
-                            Data zdarzenia
-                            <input
-                                type="date"
-                                className="dm-input"
-                                value={eventDate}
-                                onChange={(e) => setEventDate(e.target.value)}
-                                required
-                            />
-                        </label>
+                        {/* Typ + daty — 1 rząd */}
+                        <div className="dm-span-2" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
+                            <label className="dm-label">
+                                Typ
+                                <select
+                                    className="dm-input"
+                                    value={type}
+                                    onChange={(e) => setType(e.target.value as DocumentType)}
+                                >
+                                    {TYPE_OPTIONS.map((o) => (
+                                        <option key={o.value} value={o.value}>
+                                            {o.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
 
+                            <label className="dm-label">
+                                Data wystawienia
+                                <input
+                                    type="date"
+                                    className="dm-input"
+                                    value={issueDate}
+                                    onChange={(e) => setIssueDate(e.target.value)}
+                                    required
+                                />
+                            </label>
+
+                            <label className="dm-label">
+                                Data zdarzenia
+                                <input
+                                    type="date"
+                                    className="dm-input"
+                                    value={eventDate}
+                                    onChange={(e) => setEventDate(e.target.value)}
+                                    required
+                                />
+                            </label>
+                        </div>
+
+                        {/* Opis — 100% */}
                         <label className="dm-label dm-span-2">
                             Opis
                             <input
@@ -187,42 +281,39 @@ export const DocumentModal: React.FC<Props> = ({ onClose, onSubmit }) => {
                             />
                         </label>
 
-                        <label className="dm-label">
-                            Netto
-                            <input
-                                type="number"
-                                step="0.01"
-                                className="dm-input"
-                                value={netAmount}
-                                onChange={(e) => setNetAmount(e.target.value)}
-                                required
-                            />
-                        </label>
+                        {/* Netto/VAT/Brutto — 1 rząd */}
+                        <div className="dm-span-2" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
+                            <label className="dm-label">
+                                Netto
+                                <input
+                                    type="text"
+                                    inputMode="decimal"
+                                    className="dm-input"
+                                    value={netAmount}
+                                    onChange={(e) => setNetAmount(e.target.value)}
+                                    required
+                                />
+                            </label>
 
-                        <label className="dm-label">
-                            VAT
-                            <input
-                                type="number"
-                                step="0.01"
-                                className="dm-input"
-                                value={vatAmount}
-                                onChange={(e) => setVatAmount(e.target.value)}
-                                required
-                            />
-                        </label>
+                            <label className="dm-label">
+                                VAT
+                                <input
+                                    type="text"
+                                    inputMode="decimal"
+                                    className="dm-input"
+                                    value={vatAmount}
+                                    onChange={(e) => setVatAmount(e.target.value)}
+                                    required
+                                />
+                            </label>
 
-                        <label className="dm-label">
-                            Brutto
-                            <input
-                                type="number"
-                                step="0.01"
-                                className="dm-input"
-                                value={grossAmount}
-                                onChange={(e) => setGrossAmount(e.target.value)}
-                                required
-                            />
-                        </label>
+                            <label className="dm-label">
+                                Brutto
+                                <input type="text" className="dm-input" value={grossAmount} readOnly aria-readonly="true" />
+                            </label>
+                        </div>
 
+                        {/* Kategoria — 100% */}
                         <label className="dm-label dm-span-2">
                             Kategoria (opcjonalnie)
                             <select
@@ -239,26 +330,75 @@ export const DocumentModal: React.FC<Props> = ({ onClose, onSubmit }) => {
                             </select>
                         </label>
 
+                        {/* Kontrahent — 100% (wyszukiwany combobox) */}
                         <label className="dm-label dm-span-2">
                             Kontrahent (opcjonalnie)
-                            <select
-                                className="dm-input"
-                                value={contractorId ?? ""}
-                                onChange={(e) => setContractorId(e.target.value ? Number(e.target.value) : null)}
-                            >
-                                <option value="">— brak —</option>
-                                {contractors.map((c) => (
-                                    <option key={c.id} value={c.id}>
-                                        {c.name}
-                                        {c.taxId ? ` (${c.taxId})` : ""}
-                                    </option>
-                                ))}
-                            </select>
+
+                            <div className="dm-combobox">
+                                <input
+                                    type="text"
+                                    className="dm-input"
+                                    value={contractorQuery}
+                                    placeholder="Wyszukaj kontrahenta po nazwie lub NIP…"
+                                    onChange={(e) => {
+                                        setContractorQuery(e.target.value);
+                                        setContractorOpen(true);
+                                        // jak zaczyna pisać -> traktuj jako brak wyboru
+                                        if (contractorId !== null) setContractorId(null);
+                                    }}
+                                    onFocus={() => {
+                                        clearBlurTimer();
+                                        setContractorOpen(true);
+                                    }}
+                                    onBlur={() => {
+                                        clearBlurTimer();
+                                        blurTimerRef.current = window.setTimeout(() => setContractorOpen(false), 140);
+                                    }}
+                                />
+
+                                {contractorOpen && (
+                                    <div className="dm-combo-list" role="listbox">
+                                        <button
+                                            type="button"
+                                            className="dm-combo-item dm-combo-item--muted"
+                                            onMouseDown={(e) => e.preventDefault()}
+                                            onClick={() => {
+                                                setContractorId(null);
+                                                setContractorQuery("");
+                                                setContractorOpen(false);
+                                            }}
+                                        >
+                                            — brak —
+                                        </button>
+
+                                        {filteredContractors.length === 0 ? (
+                                            <div className="dm-combo-empty">Brak wyników.</div>
+                                        ) : (
+                                            filteredContractors.slice(0, 80).map((c) => (
+                                                <button
+                                                    key={c.id}
+                                                    type="button"
+                                                    className="dm-combo-item"
+                                                    onMouseDown={(e) => e.preventDefault()}
+                                                    onClick={() => {
+                                                        setContractorId(c.id);
+                                                        setContractorQuery(`${c.name}${c.taxId ? ` (${c.taxId})` : ""}`);
+                                                        setContractorOpen(false);
+                                                    }}
+                                                >
+                                                    <span className="dm-combo-name">{c.name}</span>
+                                                    {c.taxId ? <span className="dm-combo-nip">{c.taxId}</span> : null}
+                                                </button>
+                                            ))
+                                        )}
+                                    </div>
+                                )}
+                            </div>
                         </label>
                     </div>
 
                     <div className="dm-actions">
-                        <button type="button" className="dm-btn dm-btn--ghost" onClick={onClose}>
+                        <button type="button" className="dm-btn dm-btn--ghost" onClick={onClose} disabled={saving}>
                             Anuluj
                         </button>
                         <button type="submit" className="dm-btn dm-btn--primary" disabled={saving || loading}>
@@ -270,3 +410,5 @@ export const DocumentModal: React.FC<Props> = ({ onClose, onSubmit }) => {
         </div>
     );
 };
+
+export default DocumentModal;

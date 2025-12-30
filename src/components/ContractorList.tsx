@@ -1,14 +1,56 @@
 // src/components/ContractorList.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import type { ContractorRow, User } from "../types";
-import { createContractor, deleteContractor, listContractors, updateContractor } from "../contractorService";
+import {
+    createContractor,
+    deleteContractor,
+    listContractors,
+    updateContractor,
+} from "../contractorService";
+import { ConfirmDialog } from "./ConfirmDialog";
 
 type Props = {
     user: User;
-    canEdit: boolean; // tylko MANAGER = true
 };
 
-export const ContractorList: React.FC<Props> = ({ canEdit }) => {
+type DeleteTarget = { id: number; name: string };
+
+function getApiErrorMessage(err: unknown): string | null {
+    const anyErr = err as any;
+
+    const msg1 = anyErr?.response?.data?.message;
+    if (typeof msg1 === "string" && msg1.trim()) return msg1;
+
+    const msg2 = anyErr?.data?.message;
+    if (typeof msg2 === "string" && msg2.trim()) return msg2;
+
+    const msg3 = anyErr?.message;
+    if (typeof msg3 === "string" && msg3.trim()) return msg3;
+
+    return null;
+}
+
+function hasRole(user: User, role: string): boolean {
+    const roles = Array.isArray((user as any).roles) ? (user as any).roles : [];
+    const single = typeof (user as any).role === "string" ? (user as any).role : "";
+    return single === role || roles.includes(role);
+}
+
+export const ContractorList: React.FC<Props> = ({ user }) => {
+    // ✅ pracownik też może dodawać/edytować
+    const canWrite = useMemo(() => {
+        return (
+            hasRole(user, "ROLE_EMPLOYEE") ||
+            hasRole(user, "ROLE_MANAGER") ||
+            hasRole(user, "ROLE_SYSTEM_ADMIN")
+        );
+    }, [user]);
+
+    // ✅ usuwanie zostawiamy tylko managerowi/adminowi (zmień jeśli chcesz)
+    const canDelete = useMemo(() => {
+        return hasRole(user, "ROLE_MANAGER") || hasRole(user, "ROLE_SYSTEM_ADMIN");
+    }, [user]);
+
     const [items, setItems] = useState<ContractorRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -27,6 +69,9 @@ export const ContractorList: React.FC<Props> = ({ canEdit }) => {
     const [editName, setEditName] = useState("");
     const [editTaxId, setEditTaxId] = useState<string>("");
     const [editAddress, setEditAddress] = useState<string>("");
+
+    // delete modal
+    const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
 
     const load = async () => {
         setLoading(true);
@@ -57,6 +102,7 @@ export const ContractorList: React.FC<Props> = ({ canEdit }) => {
     }, [items, q]);
 
     const startEdit = (c: ContractorRow) => {
+        if (!canWrite) return;
         setEditId(c.id);
         setEditName(c.name ?? "");
         setEditTaxId(c.taxId ?? "");
@@ -71,9 +117,12 @@ export const ContractorList: React.FC<Props> = ({ canEdit }) => {
     };
 
     const handleCreate = async () => {
+        if (!canWrite) return;
+
+        setError(null);
         const name = newName.trim();
         if (!name) {
-            alert("Podaj nazwę kontrahenta.");
+            setError("Podaj nazwę kontrahenta.");
             return;
         }
 
@@ -91,16 +140,19 @@ export const ContractorList: React.FC<Props> = ({ canEdit }) => {
             await load();
         } catch (e) {
             console.error(e);
-            alert("Nie udało się dodać kontrahenta.");
+            setError(getApiErrorMessage(e) ?? "Nie udało się dodać kontrahenta.");
         } finally {
             setSaving(false);
         }
     };
 
     const handleSaveEdit = async (id: number) => {
+        if (!canWrite) return;
+
+        setError(null);
         const name = editName.trim();
         if (!name) {
-            alert("Nazwa nie może być pusta.");
+            setError("Nazwa nie może być pusta.");
             return;
         }
 
@@ -115,21 +167,33 @@ export const ContractorList: React.FC<Props> = ({ canEdit }) => {
             await load();
         } catch (e) {
             console.error(e);
-            alert("Nie udało się zapisać zmian.");
+            setError(getApiErrorMessage(e) ?? "Nie udało się zapisać zmian.");
         } finally {
             setSaving(false);
         }
     };
 
-    const handleDelete = async (id: number) => {
-        if (!window.confirm("Usunąć kontrahenta?")) return;
+    const requestDelete = (c: ContractorRow) => {
+        if (!canDelete) return;
+        setError(null);
+        setDeleteTarget({ id: c.id, name: c.name ?? `ID ${c.id}` });
+    };
+
+    const confirmDelete = async () => {
+        if (!deleteTarget) return;
+
         setSaving(true);
+        setError(null);
+
         try {
-            await deleteContractor(id);
+            await deleteContractor(deleteTarget.id);
+
+            if (editId === deleteTarget.id) cancelEdit();
+            setDeleteTarget(null);
             await load();
         } catch (e) {
-            console.error(e);
-            alert("Nie udało się usunąć kontrahenta.");
+            const msg = getApiErrorMessage(e) ?? "Nie udało się usunąć kontrahenta.";
+            throw new Error(msg);
         } finally {
             setSaving(false);
         }
@@ -142,7 +206,8 @@ export const ContractorList: React.FC<Props> = ({ canEdit }) => {
                     <h2>Kontrahenci</h2>
                     <p>
                         Lista kontrahentów w Twojej firmie.{" "}
-                        {canEdit ? "Możesz dodawać/edytować/usuwać." : "Masz tylko podgląd."}
+                        {canWrite ? "Możesz dodawać i edytować." : "Masz tylko podgląd."}{" "}
+                        {canDelete ? "Możesz też usuwać." : ""}
                     </p>
                 </div>
 
@@ -158,7 +223,7 @@ export const ContractorList: React.FC<Props> = ({ canEdit }) => {
                         Odśwież
                     </button>
 
-                    {canEdit && (
+                    {canWrite && (
                         <button
                             className="doc-btn doc-btn--primary"
                             type="button"
@@ -170,8 +235,8 @@ export const ContractorList: React.FC<Props> = ({ canEdit }) => {
                 </div>
             </div>
 
-            {canEdit && createOpen && (
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            {canWrite && createOpen && (
+                <div className="doc-row">
                     <input
                         className="doc-input"
                         placeholder="Nazwa"
@@ -231,11 +296,7 @@ export const ContractorList: React.FC<Props> = ({ canEdit }) => {
 
                                         <td>
                                             {isEditing ? (
-                                                <input
-                                                    className="doc-input"
-                                                    value={editName}
-                                                    onChange={(e) => setEditName(e.target.value)}
-                                                />
+                                                <input className="doc-input" value={editName} onChange={(e) => setEditName(e.target.value)} />
                                             ) : (
                                                 c.name
                                             )}
@@ -243,11 +304,7 @@ export const ContractorList: React.FC<Props> = ({ canEdit }) => {
 
                                         <td>
                                             {isEditing ? (
-                                                <input
-                                                    className="doc-input"
-                                                    value={editTaxId}
-                                                    onChange={(e) => setEditTaxId(e.target.value)}
-                                                />
+                                                <input className="doc-input" value={editTaxId} onChange={(e) => setEditTaxId(e.target.value)} />
                                             ) : (
                                                 c.taxId ?? "—"
                                             )}
@@ -267,7 +324,7 @@ export const ContractorList: React.FC<Props> = ({ canEdit }) => {
                                         </td>
 
                                         <td style={{ whiteSpace: "nowrap" }}>
-                                            {!canEdit ? (
+                                            {!canWrite ? (
                                                 <button className="doc-btn" type="button" disabled>
                                                     —
                                                 </button>
@@ -294,19 +351,21 @@ export const ContractorList: React.FC<Props> = ({ canEdit }) => {
                                             ) : (
                                                 <>
                                                     <button
-                                                        className="doc-btn doc-btn--ghost"
+                                                        className="doc-btn doc-btn--edit"
                                                         type="button"
                                                         onClick={() => startEdit(c)}
                                                         disabled={saving}
                                                     >
                                                         Edytuj
                                                     </button>
+
                                                     <button
-                                                        className="doc-btn"
+                                                        className="doc-btn doc-btn--danger"
                                                         type="button"
-                                                        onClick={() => handleDelete(c.id)}
-                                                        disabled={saving}
-                                                        style={{ marginLeft: 8 }}
+                                                        onClick={() => requestDelete(c)}
+                                                        disabled={saving || !canDelete}
+                                                        style={{ marginLeft: 8, opacity: canDelete ? 1 : 0.55 }}
+                                                        title={canDelete ? "Usuń kontrahenta" : "Brak uprawnień do usuwania"}
                                                     >
                                                         Usuń
                                                     </button>
@@ -320,6 +379,17 @@ export const ContractorList: React.FC<Props> = ({ canEdit }) => {
                         </tbody>
                     </table>
                 </div>
+            )}
+
+            {deleteTarget && (
+                <ConfirmDialog
+                    title="Usunąć kontrahenta?"
+                    description={`Ta operacja jest nieodwracalna. Kontrahent: ${deleteTarget.name}`}
+                    confirmText="Usuń"
+                    danger
+                    onCancel={() => setDeleteTarget(null)}
+                    onConfirm={confirmDelete}
+                />
             )}
         </div>
     );
