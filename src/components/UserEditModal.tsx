@@ -80,7 +80,6 @@ export const UserEditModal: React.FC<Props> = (props) => {
 
     const trimmedPwd = password.trim();
 
-    // ✅ waliduj tylko jeśli user coś wpisał (hasło opcjonalne)
     if (trimmedPwd) {
       const err = validatePassword(trimmedPwd);
       if (err) {

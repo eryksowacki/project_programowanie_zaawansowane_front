@@ -38,16 +38,12 @@ export async function deleteAdminUser(userId: number) {
   return apiFetch<void>(`/api/admin/users/${userId}`, { method: "DELETE" });
 }
 
-/**
- * ✅ NOWE: update własnych danych przez PATCH /api/me
- * (AuthController::updateMe)
- */
 export type UpdateMeRequest = {
   email: string;
   firstName?: string | null;
   lastName?: string | null;
-  role: string; // ROLE_EMPLOYEE | ROLE_MANAGER | ...
-  password?: string | null; // opcjonalnie
+  role: string;
+  password?: string | null;
 };
 
 export async function updateMe(payload: UpdateMeRequest) {

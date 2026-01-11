@@ -87,14 +87,14 @@
 }
 
 .cd-logout {
-  min-height: 44px; /* <- identycznie jak chip */
+  min-height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
 
   border: none;
   border-radius: 999px;
-  padding: 0 1.1rem; /* <- pionowe paddingi usuwamy, bo wysokość mamy z min-height */
+  padding: 0 1.1rem;
   font-size: 0.8rem;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -103,16 +103,10 @@
 
   background: rgba(15, 23, 42, 0.9);
   color: #e5e7eb;
-  border: 1px solid rgba(239, 68, 68, 0.65); /* <- danger border */
+  border: 1px solid rgba(239, 68, 68, 0.65);
 
   transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease,
     border-color 0.15s ease;
-  /*border: 1px solid rgba(239,68,68,.55);*/
-  /*background: rgba(239,68,68,.12);*/
-  /*color: #fecaca;*/
-  /*border-radius: 999px;*/
-  /*padding: 8px 12px;*/
-  /*cursor: pointer;*/
 }
 
 .cd-logout:hover {
@@ -250,7 +244,6 @@
   outline: none;
   cursor: pointer;
 
-  /* strzałka */
   background-image: linear-gradient(
       45deg,
       transparent 50%,
@@ -268,7 +261,7 @@
 }
 
 .cd-select option {
-  background: #0b1220; /* ciemne dropdowny */
+  background: #0b1220;
   color: #e5e7eb;
 }
 
